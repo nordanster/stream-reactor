@@ -6,6 +6,7 @@ public class Order {
     public String created;
     public Double price;
     public Integer qty;
+    public String name;
 
     public Order() { }
 
@@ -22,5 +23,13 @@ public class Order {
         this.product = product;
         this.price = price;
         this.qty = qty;
+    }
+
+    public Order(Integer id, String product, Double price, Integer qty, String name) {
+        this.id = id;
+        this.product = product;
+        this.price = price;
+        this.qty = qty;
+        this.name = name;
     }
 }

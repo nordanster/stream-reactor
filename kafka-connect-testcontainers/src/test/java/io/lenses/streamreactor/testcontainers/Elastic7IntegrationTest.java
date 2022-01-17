@@ -1,5 +1,6 @@
 package io.lenses.streamreactor.testcontainers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import io.debezium.testing.testcontainers.ConnectorConfiguration;
 import io.lenses.streamreactor.testcontainers.base.AbstractStreamReactorTest;
@@ -23,9 +24,9 @@ import java.util.stream.Stream;
 
 import static org.fest.assertions.Assertions.assertThat;
 
-public class Elastic6IntegrationTest extends AbstractStreamReactorTest {
+public class Elastic7IntegrationTest extends AbstractStreamReactorTest {
 
-    private static final KafkaConnectContainer connectContainer = connectContainer("elastic6");
+    private static final KafkaConnectContainer connectContainer = connectContainer("elastic7");
 
     private static final SchemaRegistryContainer schemaRegistryContainer = new SchemaRegistryContainer(CONFLUENT_PLATFORM_VERSION)
             .withKafka(kafkaContainer)
@@ -35,7 +36,7 @@ public class Elastic6IntegrationTest extends AbstractStreamReactorTest {
 
     private static final Integer ELASTICSEARCH_PORT = 9200;
 
-    private static final ElasticsearchContainer elasticContainer = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:6.8.8")
+    private static final ElasticsearchContainer elasticContainer = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:7.16.3")
             .withNetwork(network)
             .withExposedPorts(ELASTICSEARCH_PORT)
             .withNetworkAliases(ELASTICSEARCH_HOST);
@@ -66,7 +67,7 @@ public class Elastic6IntegrationTest extends AbstractStreamReactorTest {
 
             // Register the connector
             ConnectorConfiguration config = ConnectorConfiguration.create();
-            config.with("connector.class", "com.datamountaineer.streamreactor.connect.elastic6.ElasticSinkConnector");
+            config.with("connector.class", "com.datamountaineer.streamreactor.connect.elastic7.ElasticSinkConnector");
             config.with("tasks.max", "1");
             config.with("topics", "orders");
             config.with("connect.elastic.protocol", "http");
@@ -75,6 +76,10 @@ public class Elastic6IntegrationTest extends AbstractStreamReactorTest {
             config.with("connect.elastic.cluster.name", "elasticsearch");
             config.with("connect.elastic.kcql", "INSERT INTO orders SELECT * FROM orders");
             config.with("connect.progress.enabled", "true");
+            config.with("value.converter.schemas.enable", "false");
+            config.with("value.converter", "org.apache.kafka.connect.json.JsonConverter");
+            config.with("schema.ignore", "true");
+
             connectContainer.registerConnector("elastic-sink", config);
 
             // Write records to topic
@@ -90,7 +95,7 @@ public class Elastic6IntegrationTest extends AbstractStreamReactorTest {
             Unreliables.retryUntilTrue(1, TimeUnit.MINUTES, () -> {
                 Response response = client.newCall(request).execute();
                 String body = response.body().string();
-                return JsonPath.<Integer>read(body, "$.hits.total") == 1;
+                return JsonPath.<Integer>read(body, "$.hits.total.value") == 1;
             });
 
             Response response = client.newCall(request).execute();

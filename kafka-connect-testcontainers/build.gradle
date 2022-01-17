@@ -17,6 +17,7 @@ project(":kafka-connect-testcontainers") {
 
     tasks.test.dependsOn(':kafka-connect-cassandra:shadowJar')
     tasks.test.dependsOn(':kafka-connect-elastic6:shadowJar')
+    tasks.test.dependsOn(':kafka-connect-elastic7:shadowJar')
     tasks.test.dependsOn(':kafka-connect-mongodb:shadowJar')
     tasks.test.dependsOn(':kafka-connect-redis:shadowJar')
 

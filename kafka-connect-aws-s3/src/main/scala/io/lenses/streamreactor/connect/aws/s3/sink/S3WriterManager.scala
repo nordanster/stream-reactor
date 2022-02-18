@@ -34,6 +34,7 @@ import org.apache.kafka.connect.data.Schema
 import java.io.File
 import scala.collection.compat.toTraversableLikeExtensionMethods
 import scala.collection.{immutable, mutable}
+import scala.util.Try
 
 case class MapKey(topicPartition: TopicPartition, partitionValues: immutable.Map[PartitionField, String])
 
@@ -61,6 +62,8 @@ class S3WriterManager(
                      ) extends StrictLogging {
 
   private val writers = mutable.Map.empty[MapKey, S3Writer]
+
+  private val seekedOffsets = mutable.Map.empty[TopicPartition, Offset]
 
   private def writerForTopicPartitionWithMaxOffset(topicPartition: TopicPartition) = {
     writers
@@ -129,12 +132,14 @@ class S3WriterManager(
     partitions
       .map(seekOffsetsForTopicPartition)
       .partitionMap(identity)
-      match {
-        case (throwables, _) if throwables.nonEmpty => BatchS3SinkError(throwables).asLeft
-        case (_, offsets) =>
-          offsets.flatten.map(
-            _.toTopicPartitionOffsetTuple
-          ).toMap.asRight
+    match {
+      case (throwables, _) if throwables.nonEmpty => BatchS3SinkError(throwables).asLeft
+      case (_, offsets) =>
+        val seeked = offsets.flatten.map(
+          _.toTopicPartitionOffsetTuple
+        ).toMap
+        seekedOffsets ++= seeked
+        seeked.asRight
     }
   }
 
@@ -232,6 +237,7 @@ class S3WriterManager(
         () => stagingFilenameFn(topicPartition, partitionValues),
         finalFilenameFn.curried(topicPartition)(partitionValues),
         formatWriterFn.curried(topicPartition),
+        seekedOffsets.get(topicPartition),
       )
     }
   }
@@ -240,7 +246,7 @@ class S3WriterManager(
     currentOffsets
       .collect {
         case (topicPartition, offsetAndMetadata) =>
-          (topicPartition, createOffsetAndMetadata(offsetAndMetadata, writerForTopicPartitionWithMaxOffset(topicPartition)))
+          (topicPartition, Try(createOffsetAndMetadata(offsetAndMetadata, writerForTopicPartitionWithMaxOffset(topicPartition))).getOrElse(null))
       }
   }
 
